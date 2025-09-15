@@ -102,6 +102,12 @@ STRING_LIT  \"([^"\\]|\\.)*\"
 "foreach"   { return KW_FOREACH; }
 "in"        { return KW_IN; }
 
+"parallel"  { return KW_PARALLEL; }
+"stretch"   { return KW_STRETCH; }
+"box"       { return KW_BOX; }
+"delay"     { return KW_DELAY; }
+"barrier"   { return KW_BARRIER; }
+
 /* OPERATORS */
 "->"        { return ARROW; }
 ".."        { return RANGE; }
