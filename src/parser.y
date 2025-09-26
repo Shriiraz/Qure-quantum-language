@@ -220,8 +220,53 @@ var_decl:
         TypeSpecifier t = { DataType::ANGLE, true, {} };
         $$ = (Statement*)(new VarDecl(*$2, t, nullptr, false, $4))->loc(@1.first_line, @1.first_column);
     }
-    ;
+
+    /* --- INFERENCE (VAR/LET/ALIAS) --- */
+    | KW_VAR ID ASSIGN expression SEMICOLON {
+        TypeSpecifier t = { DataType::AUTO, false, {} };
+        $$ = (Statement*)(new VarDecl(*$2, t, $4))->loc(@1.first_line, @1.first_column);
+    }
+    /* FIX: Allow 'var x;' so Semantic Analyzer can report error */
+    | KW_VAR ID SEMICOLON {
+        TypeSpecifier t = { DataType::AUTO, false, {} };
+        $$ = (Statement*)(new VarDecl(*$2, t, nullptr))->loc(@1.first_line, @1.first_column);
+    }
+
+    | KW_CONST ID ASSIGN expression SEMICOLON {
+        TypeSpecifier t = { DataType::AUTO, false, {} };
+        $$ = (Statement*)(new VarDecl(*$2, t, $4, true))->loc(@1.first_line, @1.first_column);
+    }
+    /* FIX: Allow 'const x;' for better error reporting */
+    | KW_CONST ID SEMICOLON {
+        TypeSpecifier t = { DataType::AUTO, false, {} };
+        $$ = (Statement*)(new VarDecl(*$2, t, nullptr, true))->loc(@1.first_line, @1.first_column);
+    }
+
+    | KW_ALIAS ID ASSIGN expression SEMICOLON {
+        TypeSpecifier t = { DataType::AUTO, false, {} };
+        $$ = (Statement*)(new VarDecl(*$2, t, $4))->loc(@1.first_line, @1.first_column);
+    }
+    | KW_ALIAS ID SEMICOLON {
+        TypeSpecifier t = { DataType::AUTO, false, {} };
+        $$ = (Statement*)(new VarDecl(*$2, t, nullptr))->loc(@1.first_line, @1.first_column);
+    }
+
+    /* --- QUANTUM --- */
+    | KW_QUBIT ID LBRACKET expression RBRACKET SEMICOLON {
+        TypeSpecifier t = { DataType::QUBIT, true, {1} };
+        $$ = (Statement*)(new VarDecl(*$2, t, nullptr, false, $4))->loc(@1.first_line, @1.first_column);
+    }
+    | KW_BIT ID LBRACKET expression RBRACKET SEMICOLON {
+        TypeSpecifier t = { DataType::BIT, true, {1} };
+        $$ = (Statement*)(new VarDecl(*$2, t, nullptr, false, $4))->loc(@1.first_line, @1.first_column);
+    }
     
+    /* --- MATRIX --- */
+    | KW_MATRIX ID ASSIGN expression SEMICOLON {
+        TypeSpecifier t = { DataType::MATRIX, false, {} };
+        $$ = (Statement*)(new VarDecl(*$2, t, $4))->loc(@1.first_line, @1.first_column);
+    }
+    ;
 
 primitive_type:
     KW_INT     { $$ = (int)DataType::INT; }
@@ -321,14 +366,6 @@ equality:
         $$ = (Expression*)(new BinaryExpr($1, OpType::NEQ, $3))->loc(@2.first_line, @2.first_column); 
     }
     | relational
-    ;
-
-func_decl:
-    KW_FUNC ID LPAREN param_list RPAREN block {
-        /* FIX: Pass *$4 (the vector) to constructor */
-        $$ = (Statement*)(new FuncDecl(*$2, *$4, $6, false))->loc(@1.first_line, @1.first_column);
-        delete $2; delete $4;
-    }
     ;
 
 relational:
