@@ -31,6 +31,8 @@ void yyerror(const YYLTYPE* loc, yyscan_t scanner, Program** root, const char *s
     std::vector<Expression*>* expr_list;
     std::vector<Statement*>* stmt_list;
     int type_enum;
+    
+    /* NEW FIELDS */
     Parameter* parameter;
     std::vector<Parameter>* param_list;
 }
@@ -140,6 +142,13 @@ statement:
     | KW_RETURN expression SEMICOLON { 
         $$ = (Statement*)(new ReturnStmt($2))->loc(@1.first_line, @1.first_column); 
     }
+    | KW_RETURN SEMICOLON { 
+        $$ = (Statement*)(new ReturnStmt(nullptr))->loc(@1.first_line, @1.first_column); 
+    }
+    
+    | KW_IF LPAREN expression RPAREN block %prec LOWER_THAN_ELSE { 
+        $$ = (Statement*)(new IfStmt($3, $5))->loc(@1.first_line, @1.first_column); 
+    }
     | KW_IF LPAREN expression RPAREN block KW_ELSE statement { 
         $$ = (Statement*)(new IfStmt($3, $5, $7))->loc(@1.first_line, @1.first_column); 
     }
@@ -149,6 +158,29 @@ statement:
     }
     | KW_FOR ID KW_IN expression block {
         $$ = (Statement*)(new ForStmt(*$2, $4, $5))->loc(@1.first_line, @1.first_column);
+    }
+    | KW_FOREACH ID KW_IN expression block {
+        $$ = (Statement*)(new ForStmt(*$2, $4, $5))->loc(@1.first_line, @1.first_column);
+    }
+    
+    | KW_PARALLEL block {
+        $$ = (Statement*)(new ParallelStmt("default", $2))->loc(@1.first_line, @1.first_column);
+    }
+    | KW_PARALLEL LPAREN ID RPAREN block {
+        $$ = (Statement*)(new ParallelStmt(*$3, $5))->loc(@1.first_line, @1.first_column);
+    }
+    | KW_PARALLEL LPAREN KW_STRETCH RPAREN block {
+        $$ = (Statement*)(new ParallelStmt("stretch", $5))->loc(@1.first_line, @1.first_column);
+    }
+    | KW_PARALLEL LPAREN KW_BOX RPAREN block {
+        $$ = (Statement*)(new ParallelStmt("box", $5))->loc(@1.first_line, @1.first_column);
+    }
+
+    | KW_DELAY expression AT expression SEMICOLON {
+        $$ = (Statement*)(new DelayStmt($2, $4))->loc(@1.first_line, @1.first_column);
+    }
+    | KW_BARRIER SEMICOLON {
+        $$ = (Statement*)(new BarrierStmt({}))->loc(@1.first_line, @1.first_column);
     }
     ;
 
@@ -323,6 +355,20 @@ circuit_decl:
     }
     ;
 
+expression: assignment ;
+
+assignment:
+    postfix ASSIGN expression { 
+        $$ = (Expression*)(new BinaryExpr($1, OpType::ASSIGN, $3))->loc(@2.first_line, @2.first_column); 
+    }
+    | postfix PLUS_ASSIGN expression { 
+        $$ = (Expression*)(new BinaryExpr($1, OpType::PLUS_ASSIGN, $3))->loc(@2.first_line, @2.first_column); 
+    }
+    | postfix MINUS_ASSIGN expression { 
+        $$ = (Expression*)(new BinaryExpr($1, OpType::MINUS_ASSIGN, $3))->loc(@2.first_line, @2.first_column); 
+    }
+    | range_expr
+    ;
 
 range_expr:
     logical_or RANGE logical_or { 
