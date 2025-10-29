@@ -311,6 +311,212 @@ public:
     virtual Statement *clone() const override = 0;
 };
 
+class Block : public Statement
+{
+public:
+    std::vector<Statement *> statements;
+    Block() {}
+    void add(Statement *s) { statements.push_back(s); }
+    void print(int indent) const override
+    {
+        printIndent(indent);
+        std::cout << "Block\n";
+        for (auto s : statements)
+            s->print(indent + 1);
+    }
+    Statement *clone() const override
+    {
+        Block *b = new Block();
+        for (auto s : statements)
+            b->add(s->clone());
+        return (Statement *)b->loc(line, col);
+    }
+};
+
+class ExprStmt : public Statement
+{
+public:
+    Expression *expr;
+    ExprStmt(Expression *e) : expr(e) {}
+    void print(int indent) const override
+    {
+        expr->print(indent);
+    }
+    Statement *clone() const override { return (Statement *)(new ExprStmt(expr->clone()))->loc(line, col); }
+};
+
+class IfStmt : public Statement
+{
+public:
+    Expression *condition;
+    Block *thenBlock;
+    Statement *elseBlock;
+    IfStmt(Expression *c, Block *t, Statement *e = nullptr)
+        : condition(c), thenBlock(t), elseBlock(e) {}
+    void print(int indent) const override
+    {
+        printIndent(indent);
+        std::cout << "If Statement\n";
+        condition->print(indent + 1);
+        thenBlock->print(indent + 1);
+        if (elseBlock)
+            elseBlock->print(indent + 1);
+    }
+    Statement *clone() const override
+    {
+        return (Statement *)(new IfStmt(condition->clone(), (Block *)thenBlock->clone(), elseBlock ? elseBlock->clone() : nullptr))->loc(line, col);
+    }
+};
+
+class WhileStmt : public Statement
+{
+public:
+    Expression *condition;
+    Block *body;
+    WhileStmt(Expression *c, Block *b) : condition(c), body(b) {}
+    void print(int indent) const override
+    {
+        printIndent(indent);
+        std::cout << "While Loop\n";
+        condition->print(indent + 1);
+        body->print(indent + 1);
+    }
+    Statement *clone() const override
+    {
+        return (Statement *)(new WhileStmt(condition->clone(), (Block *)body->clone()))->loc(line, col);
+    }
+};
+
+class ForStmt : public Statement
+{
+public:
+    std::string iterator;
+    Expression *iterable;
+    Block *body;
+    ForStmt(const std::string &iter, Expression *range, Block *b)
+        : iterator(iter), iterable(range), body(b) {}
+    void print(int indent) const override
+    {
+        printIndent(indent);
+        std::cout << "For Loop (" << iterator << ")\n";
+        iterable->print(indent + 1);
+        body->print(indent + 1);
+    }
+    Statement *clone() const override
+    {
+        return (Statement *)(new ForStmt(iterator, iterable->clone(), (Block *)body->clone()))->loc(line, col);
+    }
+};
+
+class ReturnStmt : public Statement
+{
+public:
+    Expression *value;
+    ReturnStmt(Expression *v = nullptr) : value(v) {}
+    void print(int indent) const override
+    {
+        printIndent(indent);
+        std::cout << "Return\n";
+        if (value)
+            value->print(indent + 1);
+    }
+    Statement *clone() const override
+    {
+        return (Statement *)(new ReturnStmt(value ? value->clone() : nullptr))->loc(line, col);
+    }
+};
+
+class ParallelStmt : public Statement
+{
+public:
+    std::string mode;
+    Block *body;
+    ParallelStmt(const std::string &m, Block *b) : mode(m), body(b) {}
+    void print(int indent) const override
+    {
+        printIndent(indent);
+        std::cout << "Parallel (" << mode << ")\n";
+        body->print(indent + 1);
+    }
+    Statement *clone() const override
+    {
+        return (Statement *)(new ParallelStmt(mode, (Block *)body->clone()))->loc(line, col);
+    }
+};
+
+class DelayStmt : public Statement
+{
+public:
+    Expression *duration;
+    Expression *target;
+    DelayStmt(Expression *d, Expression *t) : duration(d), target(t) {}
+    void print(int indent) const override
+    {
+        printIndent(indent);
+        std::cout << "Delay\n";
+        duration->print(indent + 1);
+        target->print(indent + 1);
+    }
+    Statement *clone() const override
+    {
+        return (Statement *)(new DelayStmt(duration->clone(), target->clone()))->loc(line, col);
+    }
+};
+
+class BarrierStmt : public Statement
+{
+public:
+    std::vector<Expression *> targets;
+    BarrierStmt(std::vector<Expression *> t) : targets(t) {}
+    void print(int indent) const override
+    {
+        printIndent(indent);
+        std::cout << "Barrier\n";
+    }
+    Statement *clone() const override
+    {
+        // Simplified: ignoring targets deep copy for this specific snippet
+        return (Statement *)(new BarrierStmt(targets))->loc(line, col);
+    }
+};
+
+struct TypeSpecifier
+{
+    DataType baseType;
+    bool isArray;
+    std::vector<int> dimensions;
+};
+
+class VarDecl : public Statement
+{
+public:
+    std::string name;
+    TypeSpecifier type;
+    Expression *initializer;
+    Expression *arraySizeExpr;
+    bool isConst;
+
+    VarDecl(const std::string &n, TypeSpecifier t, Expression *init, bool c = false, Expression *sizeExpr = nullptr)
+        : name(n), type(t), initializer(init), isConst(c), arraySizeExpr(sizeExpr) {}
+
+    void print(int indent) const override
+    {
+        printIndent(indent);
+        std::cout << (isConst ? "Const " : "Var ") << name;
+        if (arraySizeExpr)
+        {
+            std::cout << "[Expr]";
+        }
+        std::cout << "\n";
+        if (initializer)
+            initializer->print(indent + 1);
+    }
+    Statement *clone() const override
+    {
+        return (Statement *)(new VarDecl(name, type, initializer ? initializer->clone() : nullptr, isConst, arraySizeExpr ? arraySizeExpr->clone() : nullptr))->loc(line, col);
+    }
+};
+
 struct Parameter
 {
     std::string name;
