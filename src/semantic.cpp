@@ -17,7 +17,9 @@ void SemanticAnalyzer::error(ASTNode* node, const std::string& msg) {
     hasError = true;
 }
 
+// =========================================================
 // Helpers
+// =========================================================
 
 std::string SemanticAnalyzer::typeToString(DataType t) {
     switch(t) {
@@ -44,7 +46,9 @@ bool SemanticAnalyzer::isNumber(DataType t) {
     return t == DataType::INT || t == DataType::FLOAT || t == DataType::ANGLE || t == DataType::COMPLEX;
 }
 
+// =========================================================
 // Traversal
+// =========================================================
 
 void SemanticAnalyzer::checkProgram(Program* node) {
     for (ASTNode* decl : node->declarations) {
@@ -146,7 +150,9 @@ void SemanticAnalyzer::checkStatement(Statement* stmt) {
     }
 }
 
+// =========================================================
 // Declarations
+// =========================================================
 
 void SemanticAnalyzer::checkVarDecl(VarDecl* decl) {
     DataType inferredType = DataType::VOID;
@@ -258,4 +264,172 @@ void SemanticAnalyzer::checkFuncDecl(FuncDecl* decl) {
 
     // 5. Exit Scope
     symTable.exitScope();
+}
+
+// =========================================================
+// Expressions
+// =========================================================
+
+DataType SemanticAnalyzer::checkExpression(Expression* expr) {
+    if (!expr) return DataType::VOID;
+
+    if (auto i = dynamic_cast<IntLiteral*>(expr)) return DataType::INT;
+    if (auto f = dynamic_cast<FloatLiteral*>(expr)) return DataType::FLOAT;
+    if (auto b = dynamic_cast<BoolLiteral*>(expr)) return DataType::BOOL;
+    if (auto s = dynamic_cast<StringLiteral*>(expr)) return DataType::STRING;
+    if (auto im = dynamic_cast<ImaginaryLiteral*>(expr)) return DataType::COMPLEX;
+    
+    if (auto id = dynamic_cast<Identifier*>(expr)) return checkIdentifier(id);
+    if (auto bin = dynamic_cast<BinaryExpr*>(expr)) return checkBinary(bin);
+    if (auto m = dynamic_cast<MethodCallExpr*>(expr)) return checkMethodCall(m);
+    if (auto c = dynamic_cast<CallExpr*>(expr)) return checkCall(c);
+    
+    if (auto idx = dynamic_cast<IndexExpr*>(expr)) {
+        DataType base = checkExpression(idx->array);
+        checkExpression(idx->index); 
+        if (base == DataType::QUBIT) return DataType::QUBIT;
+        if (base == DataType::BIT) return DataType::BIT;
+        return base; 
+    }
+    
+    if (auto arr = dynamic_cast<ArrayLiteral*>(expr)) {
+        if (!arr->elements.empty()) {
+            // Check for Matrix (Nested Array)
+            if (dynamic_cast<ArrayLiteral*>(arr->elements[0])) {
+                return DataType::MATRIX;
+            }
+            return checkExpression(arr->elements[0]);
+        }
+        return DataType::INT;
+    }
+    
+    if (auto rng = dynamic_cast<RangeExpr*>(expr)) {
+        checkExpression(rng->start);
+        checkExpression(rng->end);
+        return DataType::INT;
+    }
+
+    return DataType::VOID;
+}
+
+DataType SemanticAnalyzer::checkIdentifier(Identifier* id) {
+    SymbolInfo* sym = symTable.lookup(id->name);
+    if (!sym) {
+        error(id, "Undefined variable '" + id->name + "'");
+        return DataType::VOID;
+    }
+    return sym->type;
+}
+
+DataType SemanticAnalyzer::checkCall(CallExpr* expr) {
+    SymbolInfo* sym = symTable.lookup(expr->callee);
+    
+    if (!sym) {
+        error(expr, "Undefined function '" + expr->callee + "'");
+        return DataType::VOID;
+    }
+
+    if (!sym->isFunction) {
+        error(expr, "'" + expr->callee + "' is not a function");
+        return DataType::VOID;
+    }
+
+    for (auto arg : expr->args) {
+        checkExpression(arg);
+    }
+
+    return sym->type; 
+}
+
+DataType SemanticAnalyzer::checkBinary(BinaryExpr* expr) {
+    DataType lhs = checkExpression(expr->left);
+    DataType rhs = checkExpression(expr->right);
+
+    // 1. Assignment
+    if (expr->op == OpType::ASSIGN || 
+        expr->op == OpType::PLUS_ASSIGN || 
+        expr->op == OpType::MINUS_ASSIGN) {
+        
+        if (lhs == DataType::QUBIT || lhs == DataType::BIT) {
+            if (lhs == DataType::BIT && rhs == DataType::INT) return DataType::BIT;
+        }
+        
+        if (lhs != rhs && lhs != DataType::VOID && rhs != DataType::VOID) {
+             // Allow implicit casting logic
+             if (lhs == DataType::FLOAT && rhs == DataType::INT) return DataType::FLOAT;
+             if (lhs == DataType::COMPLEX && rhs == DataType::FLOAT) return DataType::COMPLEX;
+             if (lhs == DataType::ANGLE && rhs == DataType::FLOAT) return DataType::ANGLE; // Angle = Float
+             error(expr, "Type mismatch in assignment");
+        }
+        return lhs;
+    }
+
+    // 2. Logical
+    if (expr->op == OpType::AND || expr->op == OpType::OR) {
+        bool lhsValid = (lhs == DataType::BOOL || lhs == DataType::INT);
+        bool rhsValid = (rhs == DataType::BOOL || rhs == DataType::INT);
+        if (!lhsValid || !rhsValid) {
+            error(expr, "Logical AND/OR requires boolean or integer operands");
+        }
+        return DataType::BOOL;
+    }
+
+    // 3. Relational
+    if (expr->op >= OpType::EQ && expr->op <= OpType::GTE) {
+        return DataType::BOOL;
+    }
+
+    // 4. Arithmetic
+    if (lhs == DataType::INT && rhs == DataType::INT) return DataType::INT;
+    if ((lhs == DataType::FLOAT || rhs == DataType::FLOAT) && isNumber(lhs) && isNumber(rhs)) return DataType::FLOAT;
+    if ((lhs == DataType::COMPLEX || rhs == DataType::COMPLEX) && isNumber(lhs) && isNumber(rhs)) return DataType::COMPLEX;
+
+    return lhs;
+}
+
+DataType SemanticAnalyzer::checkMethodCall(MethodCallExpr* expr) {
+    DataType objType = checkExpression(expr->object);
+    std::string method = expr->method;
+
+    if (objType == DataType::QUBIT) {
+        if (method == "h" || method == "x" || method == "y" || method == "z") {
+            if (!expr->args.empty()) error(expr, "Gate '" + method + "' expects 0 arguments");
+            return DataType::QUBIT;
+        }
+        else if (method == "rx" || method == "ry" || method == "rz" || method == "p") {
+            if (expr->args.size() != 1) error(expr, "Rotation '" + method + "' expects 1 angle argument");
+            else {
+                 DataType argT = checkExpression(expr->args[0]);
+                 // FIX: Allow ANY number type (Int, Float, Angle)
+                 if (!isNumber(argT)) error(expr->args[0], "Rotation argument must be a number/angle");
+            }
+            return DataType::QUBIT;
+        }
+        else if (method == "cnot" || method == "cx") {
+            if (expr->args.size() != 1) error(expr, "CNOT expects 1 control argument");
+            else {
+                if (checkExpression(expr->args[0]) != DataType::QUBIT) error(expr->args[0], "CNOT control must be a qubit");
+            }
+            return DataType::QUBIT;
+        }
+        else if (method == "mcx" || method == "mcz") {
+            if (expr->args.empty()) {
+                error(expr, "Multi-control gate '" + method + "' requires at least 1 control qubit");
+            }
+            for (size_t i = 0; i < expr->args.size(); i++) {
+                DataType t = checkExpression(expr->args[i]);
+                if (t != DataType::QUBIT) {
+                    error(expr->args[i], "Argument " + std::to_string(i+1) + " of '" + method + "' must be a qubit");
+                }
+            }
+            return DataType::QUBIT; 
+        }
+        else if (method == "measure") {
+            return DataType::INT; 
+        }
+        else {
+            error(expr, "Unknown quantum method '" + method + "'");
+        }
+    } 
+    return DataType::VOID;
 }
