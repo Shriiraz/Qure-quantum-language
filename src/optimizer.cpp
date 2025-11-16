@@ -1,6 +1,31 @@
 #include "../include/optimizer.hpp"
 #include <iostream>
 
+// --- HELPER TO REMOVE EMPTY BLOCKS ---
+// Recursively removes empty blocks from a list of statements.
+// This is crucial for cleaning up after loop unrolling so that adjacent
+// gates (separated by empty loop blocks) can be cancelled.
+void cleanEmptyBlocks(std::vector<Statement *> &stmts)
+{
+    std::vector<Statement *> cleaned;
+    for (auto s : stmts)
+    {
+        if (auto block = dynamic_cast<Block *>(s))
+        {
+            // Recursively clean the inner block first
+            cleanEmptyBlocks(block->statements);
+
+            // If the block is now empty, skip it (effectively deleting it)
+            if (block->statements.empty())
+            {
+                continue;
+            }
+        }
+        cleaned.push_back(s);
+    }
+    stmts = cleaned;
+}
+
 Optimizer::Optimizer() {}
 
 // --- MAIN OPTIMIZE ENTRY POINT ---
@@ -400,6 +425,86 @@ Expression *Optimizer::foldBinary(BinaryExpr *expr, Expression *left, Expression
     }
 
     return expr;
+}
+
+void Optimizer::optimizePeephole(std::vector<Statement *> &stmts)
+{
+    std::vector<Statement *> output;
+
+    for (Statement *stmt : stmts)
+    {
+        bool consumed = false;
+
+        if (auto exprStmt = dynamic_cast<ExprStmt *>(stmt))
+        {
+            if (auto call = dynamic_cast<MethodCallExpr *>(exprStmt->expr))
+            {
+
+                // Check against the LAST statement added to output
+                if (!output.empty())
+                {
+                    if (auto prevStmt = dynamic_cast<ExprStmt *>(output.back()))
+                    {
+                        if (auto prevCall = dynamic_cast<MethodCallExpr *>(prevStmt->expr))
+                        {
+
+                            // Check: Same Method (roughly), Same Object
+                            if (areExpressionsEqual(call->object, prevCall->object))
+                            {
+
+                                // 1. CANCELLATION
+                                if (call->method == prevCall->method && isSelfInverse(call->method))
+                                {
+                                    bool argsMatch = true;
+                                    if (call->args.size() != prevCall->args.size())
+                                        argsMatch = false;
+                                    else
+                                    {
+                                        for (size_t k = 0; k < call->args.size(); k++)
+                                        {
+                                            if (!areExpressionsEqual(call->args[k], prevCall->args[k]))
+                                            {
+                                                argsMatch = false;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (argsMatch)
+                                    {
+                                        output.pop_back(); // Remove previous
+                                        consumed = true;   // Skip current
+                                    }
+                                }
+
+                                // 2. FUSION
+                                else if (call->method == prevCall->method && isRotation(call->method))
+                                {
+                                    if (call->args.size() == 1 && prevCall->args.size() == 1)
+                                    {
+                                        Expression *angle1 = prevCall->args[0];
+                                        Expression *angle2 = call->args[0];
+
+                                        BinaryExpr *newAngle = new BinaryExpr(angle1->clone(), OpType::PLUS, angle2->clone());
+                                        prevCall->args[0] = optimizeExpression(newAngle);
+
+                                        consumed = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!consumed)
+        {
+            output.push_back(stmt);
+        }
+    }
+
+    stmts = output;
 }
 
 bool Optimizer::isSelfInverse(const std::string &name)
