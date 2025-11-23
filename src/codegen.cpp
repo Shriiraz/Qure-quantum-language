@@ -179,3 +179,133 @@ void CodeGenerator::visitStatement(Statement* stmt) {
         out << "\n";
     }
 }
+
+void CodeGenerator::visitExpression(Expression* expr) {
+    if (!expr) return;
+
+    if (auto i = dynamic_cast<IntLiteral*>(expr)) out << i->value;
+    else if (auto f = dynamic_cast<FloatLiteral*>(expr)) out << f->value;
+    else if (auto b = dynamic_cast<BoolLiteral*>(expr)) out << (b->value ? "true" : "false");
+    else if (auto s = dynamic_cast<StringLiteral*>(expr)) out << "\"" << s->value << "\"";
+    else if (auto id = dynamic_cast<Identifier*>(expr)) out << id->name;
+    
+    else if (auto bin = dynamic_cast<BinaryExpr*>(expr)) {
+        if (bin->op == OpType::ASSIGN) {
+            visitExpression(bin->left);
+            out << " = ";
+            visitExpression(bin->right);
+        } else {
+            out << "(";
+            visitExpression(bin->left);
+            out << " " << getOperator(bin->op) << " ";
+            visitExpression(bin->right);
+            out << ")";
+        }
+    }
+    else if (auto idx = dynamic_cast<IndexExpr*>(expr)) {
+        visitExpression(idx->array);
+        out << "[";
+        visitExpression(idx->index);
+        out << "]";
+    }
+    else if (auto call = dynamic_cast<CallExpr*>(expr)) {
+        out << call->callee << "(";
+        for(size_t i=0; i<call->args.size(); ++i) {
+            visitExpression(call->args[i]);
+            if(i < call->args.size()-1) out << ", ";
+        }
+        out << ")";
+    }
+    else if (auto arr = dynamic_cast<ArrayLiteral*>(expr)) {
+        out << "{";
+        for(size_t i=0; i<arr->elements.size(); ++i) {
+            visitExpression(arr->elements[i]);
+            if(i < arr->elements.size()-1) out << ", ";
+        }
+        out << "}";
+    }
+    else if (auto method = dynamic_cast<MethodCallExpr*>(expr)) {
+        std::string m = method->method;
+        
+        if (m == "measure") {
+            out << "measure ";
+            visitExpression(method->object);
+        }
+        else if (m == "mcx") {
+            out << "ctrl(" << method->args.size() << ") @ x ";
+            for(auto arg : method->args) {
+                visitExpression(arg);
+                out << ", ";
+            }
+            visitExpression(method->object);
+        }
+        else if (m == "mcz") {
+            out << "ctrl(" << method->args.size() << ") @ z ";
+            for(auto arg : method->args) {
+                visitExpression(arg);
+                out << ", ";
+            }
+            visitExpression(method->object);
+        }
+        else if (m == "cnot" || m == "cx") {
+            out << "cx ";
+            if (!method->args.empty()) {
+                visitExpression(method->args[0]);
+                out << ", ";
+            }
+            visitExpression(method->object);
+        }
+        else {
+            out << m;
+            
+            std::vector<Expression*> gateParams;
+            std::vector<Expression*> gateTargets;
+            
+            if (m == "rx" || m == "ry" || m == "rz" || m == "p" || m == "u3") {
+                if (!method->args.empty()) gateParams.push_back(method->args[0]);
+                gateTargets.push_back(method->object);
+            }
+            else {
+                gateTargets.push_back(method->object);
+            }
+            
+            if (!gateParams.empty()) {
+                out << "(";
+                for(size_t i=0; i<gateParams.size(); ++i) {
+                    visitExpression(gateParams[i]);
+                    if(i < gateParams.size()-1) out << ", ";
+                }
+                out << ")";
+            }
+            
+            out << " ";
+            
+            for(size_t i=0; i<gateTargets.size(); ++i) {
+                visitExpression(gateTargets[i]);
+                if(i < gateTargets.size()-1) out << ", ";
+            }
+        }
+    }
+}
+
+std::string CodeGenerator::getOperator(OpType op) {
+    switch(op) {
+        case OpType::PLUS: return "+";
+        case OpType::MINUS: return "-";
+        case OpType::MUL: return "*";
+        case OpType::DIV: return "/";
+        case OpType::POWER: return "**";
+        case OpType::EQ: return "==";
+        case OpType::NEQ: return "!=";
+        case OpType::LT: return "<";
+        case OpType::GT: return ">";
+        case OpType::AND: return "&&";
+        case OpType::OR: return "||";
+        case OpType::BIT_AND: return "&";
+        case OpType::BIT_OR: return "|";
+        case OpType::BIT_XOR: return "^";
+        case OpType::LSHIFT: return "<<";
+        case OpType::RSHIFT: return ">>";
+        default: return "?";
+    }
+}
