@@ -32,11 +32,11 @@ LETTER      [a-zA-Z_]
 ID          {LETTER}({LETTER}|{DIGIT})*
 INT_LIT     {DIGIT}+
 
-/* FLOAT LOGIC SPLIT */
-/* Case A: Digits after dot (e.g. 0.5, .5, 1.0) - Always a float */
+        /* FLOAT LOGIC SPLIT */
+    /* Case A: Digits after dot (e.g. 0.5, .5, 1.0) - Always a float */
 FLOAT_A     ({DIGIT}+"."{DIGIT}+|{DIGIT}*"."{DIGIT}+)([eE][-+]?{DIGIT}+)?
 
-/* Case B: No digits after dot (e.g. 1., 1.e5) - Ambiguous with Range */
+    /* Case B: No digits after dot (e.g. 1., 1.e5) - Ambiguous with Range */
 FLOAT_B     {DIGIT}+"."([eE][-+]?{DIGIT}+)?
 
 IMAG_LIT    ({FLOAT_A}|{FLOAT_B}|{INT_LIT})"i"
@@ -51,13 +51,13 @@ STRING_LIT  \"([^"\\]|\\.)*\"
 
     /* LITERALS (Specifics First) */
 
-/* 1. Safe Floats (e.g. 0.5) */
+    /* 1. Safe Floats (e.g. 0.5) */
 {FLOAT_A}   { yylval->fval = std::stod(yytext); return FLOAT_LIT; }
 
-/* 2. Ambiguous Floats (e.g. 0.) */
+    /* 2. Ambiguous Floats (e.g. 0.) */
 {FLOAT_B}/[^.] { yylval->fval = std::stod(yytext); return FLOAT_LIT; }
 
-/* 3. Imaginary */
+    /* 3. Imaginary */
 {IMAG_LIT} {
     std::string text = yytext;
     text.pop_back();
@@ -65,16 +65,16 @@ STRING_LIT  \"([^"\\]|\\.)*\"
     return IMAG_LIT;
 }
 
-/* 4. Time */
+    /* 4. Time */
 {TIME_LIT} {
     yylval->sval = new std::string(yytext);
     return TIME_LIT;
 }
 
-/* 5. Integers */
+    /* 5. Integers */
 {INT_LIT}   { yylval->ival = std::stoi(yytext); return INT_LIT; }
 
-/* KEYWORDS */
+    /* KEYWORDS */
 "import"    { return KW_IMPORT; }
 "const"     { return KW_CONST; }
 "var"       { return KW_VAR; }
@@ -108,7 +108,7 @@ STRING_LIT  \"([^"\\]|\\.)*\"
 "delay"     { return KW_DELAY; }
 "barrier"   { return KW_BARRIER; }
 
-/* OPERATORS */
+    /* OPERATORS */
 "->"        { return ARROW; }
 ".."        { return RANGE; }
 
