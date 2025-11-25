@@ -143,15 +143,16 @@ make clean_deps
 
 ## Example: Grover's Algorithm
 
-### Input (tests/final_grover.qs):
+### Input (tests/codegen/final_grover.qs):
 
+```qs
 const N = 2;
 qubit q[2];
 qubit ancilla[1];
 
 // Initialization Loop
 for i in 0..(N-1) {
-q[i].h();
+	q[i].h();
 }
 
 // Oracle (Multi-Controlled X)
@@ -160,28 +161,33 @@ q[1].mcx(q[0], ancilla[0]);
 // Measurement
 bit c[2];
 for i in 0..(N-1) {
-c[i] = q[i].measure();
+	c[i] = q[i].measure();
 }
+```
 
 ### Output (Generated OpenQASM 3.0):
 
+```openqasm
 OPENQASM 3.0;
 include "stdgates.inc";
 
 qubit[2] q;
 qubit[1] ancilla;
 {
-// Loop Unrolled
-h q[0];
-h q[1];
+	// Loop Unrolled
+	h q[0];
+	h q[1];
 }
+
 // MCX Translated to Modifier
 ctrl(2) @ x q[0], ancilla[0], q[1];
+
 bit[2] c;
 {
-c[0] = measure q[0];
-c[1] = measure q[1];
+	c[0] = measure q[0];
+	c[1] = measure q[1];
 }
+```
 
 ## Example: Quantum Fourier Transform (QFT)
 
