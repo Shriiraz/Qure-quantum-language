@@ -51,13 +51,13 @@ STRING_LIT  \"([^"\\]|\\.)*\"
 
     /* LITERALS (Specifics First) */
 
-    /* 1. Safe Floats (e.g. 0.5) */
+    /* Safe Floats (e.g. 0.5) */
 {FLOAT_A}   { yylval->fval = std::stod(yytext); return FLOAT_LIT; }
 
-    /* 2. Ambiguous Floats (e.g. 0.) */
+    /* Ambiguous Floats (e.g. 0.) */
 {FLOAT_B}/[^.] { yylval->fval = std::stod(yytext); return FLOAT_LIT; }
 
-    /* 3. Imaginary */
+    /* Imaginary */
 {IMAG_LIT} {
     std::string text = yytext;
     text.pop_back();
@@ -65,13 +65,13 @@ STRING_LIT  \"([^"\\]|\\.)*\"
     return IMAG_LIT;
 }
 
-    /* 4. Time */
+    /* Time */
 {TIME_LIT} {
     yylval->sval = new std::string(yytext);
     return TIME_LIT;
 }
 
-    /* 5. Integers */
+    /* Integers */
 {INT_LIT}   { yylval->ival = std::stoi(yytext); return INT_LIT; }
 
     /* KEYWORDS */

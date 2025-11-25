@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdio>
+#include <fstream>
 #include "../include/ast.hpp"
 #include "../include/semantic.hpp"
 #include "../include/optimizer.hpp"
@@ -18,38 +19,60 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    FILE* myfile = fopen(argv[1], "r");
+    const char* inputFile = argv[1];
+    FILE* myfile = fopen(inputFile, "r");
     if (!myfile) {
-        std::cerr << "Error: Could not open file " << argv[1] << std::endl;
+        std::cerr << "Error: Could not open file " << inputFile << std::endl;
         return 1;
     }
 
+    // Initialize Lexer/Parser
     yyscan_t scanner;
-    if (yylex_init(&scanner) != 0) return 1;
+    if (yylex_init(&scanner) != 0) {
+        std::cerr << "Error initializing scanner." << std::endl;
+        fclose(myfile);
+        return 1;
+    }
 
     yyset_in(myfile, scanner);
     Program* root = nullptr;
 
+    //  Parse
     int result = yyparse(scanner, &root);
     yylex_destroy(scanner);
     fclose(myfile);
 
     if (result == 0 && root) {
+        // Semantic Analysis
         SemanticAnalyzer analyzer;
         if (analyzer.analyze(root)) {
             
+            // Optimization
             Optimizer opt;
             opt.optimize(root);
             
-            // --- CODE GENERATION ---
-            // Output directly to stdout
-            CodeGenerator codegen(std::cout);
+            // Code Generation
+            std::ofstream outFile("output.qasm");
+            
+            if (!outFile.is_open()) {
+                std::cerr << "Error: Could not write to output.qasm" << std::endl;
+                return 1;
+            }
+
+            CodeGenerator codegen(outFile);
             codegen.generate(root);
             
+            outFile.close();
+            
+            // Success Message
+            std::cout << "Successfully compiled " << inputFile << " -> output.qasm" << std::endl;
+            
         } else {
+            // Semantic errors are printed inside analyzer
             return 1;
         }
     } else {
+        std::cerr << "Parsing Failed." << std::endl;
         return 1;
     }
 

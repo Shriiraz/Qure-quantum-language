@@ -97,7 +97,7 @@ void SemanticAnalyzer::checkStatement(Statement* stmt) {
         DataType iterType = DataType::INT; // Default for ranges
         bool validIterable = false;
 
-        // 1. Check what we are iterating over
+        // Check what we are iterating over
         if (auto rng = dynamic_cast<RangeExpr*>(f->iterable)) {
             checkExpression(rng);
             iterType = DataType::INT;
@@ -108,7 +108,7 @@ void SemanticAnalyzer::checkStatement(Statement* stmt) {
             SymbolInfo* sym = symTable.lookup(id->name);
             if (sym) {
                 if (sym->isArray) {
-                    iterType = sym->type; // e.g., float array -> float iterator
+                    iterType = sym->type;
                     validIterable = true;
                 } else {
                     error(f->iterable, "Cannot iterate over scalar variable '" + id->name + "'");
@@ -118,7 +118,7 @@ void SemanticAnalyzer::checkStatement(Statement* stmt) {
             }
         }
         else if (auto arr = dynamic_cast<ArrayLiteral*>(f->iterable)) {
-            // Infer type from the array literal (e.g. [1.0, 2.0] -> FLOAT)
+            // Infer type from the array literal
             iterType = checkExpression(arr);
             validIterable = true;
         }
@@ -128,14 +128,13 @@ void SemanticAnalyzer::checkStatement(Statement* stmt) {
             error(f->iterable, "Invalid iterable expression in for-loop");
         }
 
-        // 2. Declare the iterator with the INFERRED type
-        // (Only if iterable was valid, otherwise default to INT to suppress cascade errors)
+        // Declare the iterator with the INFERRED type
         SymbolInfo iter = { f->iterator, iterType, false, 0, false, false, {} };
         if (!symTable.declare(iter)) {
              error(f->iterable, "Loop iterator '" + f->iterator + "' redeclared");
         }
         
-        // 3. Check Body
+        // Check Body
         checkBlock(f->body);
         symTable.exitScope();
     }
@@ -183,13 +182,12 @@ void SemanticAnalyzer::checkVarDecl(VarDecl* decl) {
         // Standard Assignment Check
         if (decl->initializer && decl->type.baseType != inferredType) {
             bool safe = false;
-            // --- IMPLICIT CASTING RULES ---
             if (decl->type.baseType == inferredType) safe = true;
             // Int -> Float
             if (decl->type.baseType == DataType::FLOAT && inferredType == DataType::INT) safe = true;
             // Int -> Angle
             if (decl->type.baseType == DataType::ANGLE && inferredType == DataType::INT) safe = true;
-            // Float -> Angle (THIS IS THE FIX YOU NEED)
+            // Float -> Angle
             if (decl->type.baseType == DataType::ANGLE && inferredType == DataType::FLOAT) safe = true;
             // Numbers -> Complex
             if (decl->type.baseType == DataType::COMPLEX && inferredType == DataType::INT) safe = true;
@@ -227,7 +225,7 @@ void SemanticAnalyzer::checkVarDecl(VarDecl* decl) {
 }
 
 void SemanticAnalyzer::checkFuncDecl(FuncDecl* decl) {
-    // 1. Register Function Name in Outer Scope
+    // Register Function Name in Outer Scope
     SymbolInfo funcInfo;
     funcInfo.name = decl->name;
     funcInfo.type = DataType::VOID;
@@ -242,10 +240,10 @@ void SemanticAnalyzer::checkFuncDecl(FuncDecl* decl) {
         error(decl, "Function/Circuit '" + decl->name + "' redeclared.");
     }
 
-    // 2. Enter Function Scope
+    // Enter Function Scope
     symTable.enterScope();
 
-    // 3. FIX: Register Parameters as Local Variables
+    // Register Parameters as Local Variables
     for (const auto& param : decl->params) {
         SymbolInfo pInfo;
         pInfo.name = param.name;
@@ -345,7 +343,7 @@ DataType SemanticAnalyzer::checkBinary(BinaryExpr* expr) {
     DataType lhs = checkExpression(expr->left);
     DataType rhs = checkExpression(expr->right);
 
-    // 1. Assignment
+    // Assignment
     if (expr->op == OpType::ASSIGN || 
         expr->op == OpType::PLUS_ASSIGN || 
         expr->op == OpType::MINUS_ASSIGN) {
@@ -364,7 +362,7 @@ DataType SemanticAnalyzer::checkBinary(BinaryExpr* expr) {
         return lhs;
     }
 
-    // 2. Logical
+    // Logical
     if (expr->op == OpType::AND || expr->op == OpType::OR) {
         bool lhsValid = (lhs == DataType::BOOL || lhs == DataType::INT);
         bool rhsValid = (rhs == DataType::BOOL || rhs == DataType::INT);
@@ -374,12 +372,12 @@ DataType SemanticAnalyzer::checkBinary(BinaryExpr* expr) {
         return DataType::BOOL;
     }
 
-    // 3. Relational
+    // Relational
     if (expr->op >= OpType::EQ && expr->op <= OpType::GTE) {
         return DataType::BOOL;
     }
 
-    // 4. Arithmetic
+    // Arithmetic
     if (lhs == DataType::INT && rhs == DataType::INT) return DataType::INT;
     if ((lhs == DataType::FLOAT || rhs == DataType::FLOAT) && isNumber(lhs) && isNumber(rhs)) return DataType::FLOAT;
     if ((lhs == DataType::COMPLEX || rhs == DataType::COMPLEX) && isNumber(lhs) && isNumber(rhs)) return DataType::COMPLEX;
@@ -400,7 +398,7 @@ DataType SemanticAnalyzer::checkMethodCall(MethodCallExpr* expr) {
             if (expr->args.size() != 1) error(expr, "Rotation '" + method + "' expects 1 angle argument");
             else {
                  DataType argT = checkExpression(expr->args[0]);
-                 // FIX: Allow ANY number type (Int, Float, Angle)
+                 // Allow ANY number type (Int, Float, Angle)
                  if (!isNumber(argT)) error(expr->args[0], "Rotation argument must be a number/angle");
             }
             return DataType::QUBIT;

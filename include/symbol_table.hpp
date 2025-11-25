@@ -36,12 +36,12 @@ public:
         }
     }
 
-    // Add symbol to the CURRENT scope
+    // Add symbol to the current scope
     bool declare(const SymbolInfo& symbol) {
         if (scopes.empty()) return false;
         auto& currentScope = scopes.back();
         
-        // Check if already exists in THIS scope (redeclaration error)
+        // Check if already exists in this scope 
         if (currentScope.find(symbol.name) != currentScope.end()) {
             return false; 
         }
@@ -50,7 +50,7 @@ public:
         return true;
     }
 
-    // Look up symbol (start from top of stack and go down)
+    // Look up symbol (starting from top of stack and go down)
     SymbolInfo* lookup(const std::string& name) {
         for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
             auto& scope = *it;

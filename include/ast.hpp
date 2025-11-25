@@ -61,7 +61,7 @@ public:
 
     virtual ASTNode *clone() const = 0;
 
-    // Helper to set location and return 'this' as ASTNode*
+    // Helper to set location and return this as ASTNode*
     ASTNode *loc(int l, int c)
     {
         line = l;
@@ -92,7 +92,6 @@ public:
         printIndent(indent);
         std::cout << "Identifier: " << name << "\n";
     }
-    // FIX: Added (Expression*) cast
     Expression *clone() const override { return (Expression *)(new Identifier(name))->loc(line, col); }
 };
 
@@ -475,7 +474,6 @@ public:
     }
     Statement *clone() const override
     {
-        // Simplified: ignoring targets deep copy for this specific snippet
         return (Statement *)(new BarrierStmt(targets))->loc(line, col);
     }
 };

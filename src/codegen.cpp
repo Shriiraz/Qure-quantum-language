@@ -143,14 +143,11 @@ void CodeGenerator::visitStatement(Statement* stmt) {
         emitIndent();
         out << "barrier;\n"; 
     }
-    // --- FIXED PARALLEL BLOCK ---
     else if (auto par = dynamic_cast<ParallelStmt*>(stmt)) {
         emitIndent();
         
-        // 1. Handle modifiers (box/stretch)
         if (par->mode == "box") out << "box ";
         
-        // 2. Print the block content
         // We manually traverse the block to inject the barrier INSIDE
         out << "{\n";
         indentLevel++;
@@ -158,7 +155,6 @@ void CodeGenerator::visitStatement(Statement* stmt) {
             visitStatement(s);
         }
         
-        // 3. AUTOMATIC BARRIER
         // We emit a global barrier at the end of the parallel block
         // to ensure all threads/qubits synchronize before moving on.
         emitIndent();

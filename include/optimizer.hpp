@@ -32,7 +32,7 @@ private:
     
     bool isConstant(Expression* expr);
     
-    // Helper to clone a literal node (needed for propagation)
+    // Helper to clone a literal node
     Expression* cloneLiteral(Expression* lit);
 
     // Gate Cancellation Logic

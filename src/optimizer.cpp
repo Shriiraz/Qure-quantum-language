@@ -3,7 +3,7 @@
 
 // --- HELPER TO REMOVE EMPTY BLOCKS ---
 // Recursively removes empty blocks from a list of statements.
-// This is crucial for cleaning up after loop unrolling so that adjacent
+// This is important for cleaning up after loop unrolling so that adjacent
 // gates (separated by empty loop blocks) can be cancelled.
 void cleanEmptyBlocks(std::vector<Statement *> &stmts)
 {
@@ -15,7 +15,7 @@ void cleanEmptyBlocks(std::vector<Statement *> &stmts)
             // Recursively clean the inner block first
             cleanEmptyBlocks(block->statements);
 
-            // If the block is now empty, skip it (effectively deleting it)
+            // If the block is now empty, skip it (deleting it)
             if (block->statements.empty())
             {
                 continue;
@@ -28,14 +28,12 @@ void cleanEmptyBlocks(std::vector<Statement *> &stmts)
 
 Optimizer::Optimizer() {}
 
-// --- MAIN OPTIMIZE ENTRY POINT ---
 void Optimizer::optimize(Program *root)
 {
     if (!root)
         return;
     constantTable.clear();
 
-    // 1. Optimize individual statements (Folding, Unrolling)
     // We use a temporary vector to hold Statements because Program holds ASTNode*
     std::vector<Statement *> globalStmts;
 
@@ -50,14 +48,11 @@ void Optimizer::optimize(Program *root)
         }
     }
 
-    // 2. FIX: Remove Empty Blocks created by unrolling/DCE
     cleanEmptyBlocks(globalStmts);
 
-    // 3. Run Peephole (Cancellation + Fusion) on Global Scope
     // Now that empty blocks are gone, q[0].h() and q[0].h() will be adjacent!
     optimizePeephole(globalStmts);
 
-    // 4. Write back to Program
     root->declarations.clear();
     for (auto s : globalStmts)
     {
@@ -103,10 +98,8 @@ void Optimizer::optimizeBlock(Block *block)
         }
     }
 
-    // FIX: Clean Empty Blocks before peephole
     cleanEmptyBlocks(newStmts);
 
-    // Run Peephole
     optimizePeephole(newStmts);
 
     block->statements = newStmts;
@@ -159,7 +152,6 @@ Statement *Optimizer::optimizeStatement(Statement *stmt)
         }
         return ifStmt;
     }
-    // --- LOOP UNROLLING ---
     else if (auto loop = dynamic_cast<ForStmt *>(stmt))
     {
         loop->iterable = optimizeExpression(loop->iterable);
@@ -448,11 +440,9 @@ void Optimizer::optimizePeephole(std::vector<Statement *> &stmts)
                         if (auto prevCall = dynamic_cast<MethodCallExpr *>(prevStmt->expr))
                         {
 
-                            // Check: Same Method (roughly), Same Object
                             if (areExpressionsEqual(call->object, prevCall->object))
                             {
 
-                                // 1. CANCELLATION
                                 if (call->method == prevCall->method && isSelfInverse(call->method))
                                 {
                                     bool argsMatch = true;
@@ -477,7 +467,6 @@ void Optimizer::optimizePeephole(std::vector<Statement *> &stmts)
                                     }
                                 }
 
-                                // 2. FUSION
                                 else if (call->method == prevCall->method && isRotation(call->method))
                                 {
                                     if (call->args.size() == 1 && prevCall->args.size() == 1)

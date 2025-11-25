@@ -258,7 +258,6 @@ var_decl:
         TypeSpecifier t = { DataType::AUTO, false, {} };
         $$ = (Statement*)(new VarDecl(*$2, t, $4))->loc(@1.first_line, @1.first_column);
     }
-    /* FIX: Allow 'var x;' so Semantic Analyzer can report error */
     | KW_VAR ID SEMICOLON {
         TypeSpecifier t = { DataType::AUTO, false, {} };
         $$ = (Statement*)(new VarDecl(*$2, t, nullptr))->loc(@1.first_line, @1.first_column);
@@ -268,7 +267,6 @@ var_decl:
         TypeSpecifier t = { DataType::AUTO, false, {} };
         $$ = (Statement*)(new VarDecl(*$2, t, $4, true))->loc(@1.first_line, @1.first_column);
     }
-    /* FIX: Allow 'const x;' for better error reporting */
     | KW_CONST ID SEMICOLON {
         TypeSpecifier t = { DataType::AUTO, false, {} };
         $$ = (Statement*)(new VarDecl(*$2, t, nullptr, true))->loc(@1.first_line, @1.first_column);
@@ -310,7 +308,6 @@ primitive_type:
     ;
 
 param:
-    /* FIX: Capture Name ($1) and Type ($3) */
     ID COLON primitive_type {
         TypeSpecifier t = { (DataType)$3, false, {} };
         $$ = new Parameter{*$1, t};
@@ -341,7 +338,6 @@ param_list:
 
 func_decl:
     KW_FUNC ID LPAREN param_list RPAREN block {
-        /* FIX: Pass *$4 (the vector) to constructor */
         $$ = (Statement*)(new FuncDecl(*$2, *$4, $6, false))->loc(@1.first_line, @1.first_column);
         delete $2; delete $4;
     }
@@ -349,7 +345,6 @@ func_decl:
 
 circuit_decl:
     KW_CIRCUIT ID LPAREN param_list RPAREN block {
-        /* FIX: Pass *$4 to constructor */
         $$ = (Statement*)(new FuncDecl(*$2, *$4, $6, true))->loc(@1.first_line, @1.first_column);
         delete $2; delete $4;
     }
@@ -490,7 +485,6 @@ postfix:
         $$ = (Expression*)(new IndexExpr($1, $3))->loc(@2.first_line, @2.first_column);
     }
     
-    /* FIX: Add Standard Function Calls: foo(args) */
     | postfix LPAREN argument_list RPAREN {
         /* Check if the left side is an Identifier */
         if (auto id = dynamic_cast<Identifier*>($1)) {

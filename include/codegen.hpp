@@ -6,7 +6,6 @@
 
 class CodeGenerator {
 public:
-    // Write to file or stdout (std::cout)
     CodeGenerator(std::ostream& os) : out(os), indentLevel(0) {}
     void generate(Program* root);
 

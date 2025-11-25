@@ -8,7 +8,6 @@ private:
     SymbolTable symTable;
     bool hasError;
 
-    // ERROR REPORTING: Now takes an ASTNode to extract line/col
     void error(ASTNode* node, const std::string& msg);
     
     // Core traversal methods
