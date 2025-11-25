@@ -196,3 +196,6 @@ QCompiler/
 │ └── main.cpp # Compiler Driver
 ├── tests/ # Test Suite (.qs files)
 └── Makefile # Cross-Platform Build Script
+
+Still working on:
+Adding support for Hardware topology
