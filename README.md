@@ -316,21 +316,23 @@ Hardware Topology: The compiler assumes all-to-all connectivity. It does not ins
 
 ## Project Structure
 
+```text
 QCompiler/
 ├── include/
-│ ├── ast.hpp # Abstract Syntax Tree Classes
-│ ├── semantic.hpp # Type Checking & Symbol Table
-│ ├── optimizer.hpp # Folding, Unrolling, Fusion Passes
-│ └── codegen.hpp # OpenQASM 3.0 Translator
+│   ├── ast.hpp            # Abstract Syntax Tree Classes
+│   ├── semantic.hpp       # Type Checker & Symbol Table
+│   ├── optimizer.hpp      # Folding, Unrolling, Fusion Passes
+│   └── codegen.hpp        # OpenQASM 3.0 Translator
 ├── src/
-│ ├── lexer.l # Flex Tokenizer Definitions
-│ ├── parser.y # Bison Grammar Rules
-│ ├── semantic.cpp # Semantic Analysis Implementation
-│ ├── optimizer.cpp # Optimization Logic
-│ ├── codegen.cpp # Code Generation Implementation
-│ └── main.cpp # Compiler Driver
-├── tests/ # Test Suite (.qs files)
-└── Makefile # Cross-Platform Build Script
+│   ├── lexer.l            # Flex Tokenizer Definitions
+│   ├── parser.y           # Bison Grammar Rules
+│   ├── semantic.cpp       # Semantic Analysis Implementation
+│   ├── optimizer.cpp      # Optimization Logic
+│   ├── codegen.cpp        # Code Generation Implementation
+│   └── main.cpp           # Compiler Driver
+├── tests/                 # Test Suite (.qs files)
+└── Makefile               # Cross-Platform Build Script
+```
 
 ### Still working on
 - Adding support for hardware topology
